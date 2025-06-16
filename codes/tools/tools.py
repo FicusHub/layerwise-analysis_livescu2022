@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Implements scoring for CCA and MI
 
@@ -22,23 +24,32 @@ import numpy as np
 import os
 import random
 import time
+import json
+from tqdm import tqdm
+import fire
+import sys
 
 from scipy.spatial.distance import cosine
 from scipy.stats import spearmanr
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.metrics import mutual_info_score
 
-curr_dir = os.path.dirname(os.path.realpath(__file__))
-import sys
+# Import from the same directory
+from .cca_core import CCA
+from .tools_utils import LAYER_CNT
 
+# Import from parent directory
+curr_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(curr_dir, ".."))
-import utils
-from cca_core import CCA
+from utils import save_dct, read_lst, format_time, load_dct, add_to_file
 
+def write_to_file(content, filepath):
+    """Write content to file"""
+    with open(filepath, 'w') as f:
+        f.write(content)
 
 def logger(write_str, log_fn):
-    utils.add_to_file(write_str + "\n", log_fn)
-
+    add_to_file(write_str + "\n", log_fn)
 
 class PrepForCCA:
     def __init__(
@@ -77,7 +88,7 @@ class PrepForCCA:
         save sampled indices to a file
         """
         idx_lst_str = list(map(str, idx_lst))
-        utils.write_to_file(
+        write_to_file(
             "\n".join(idx_lst_str), os.path.join(self.data_dir, f"split{split_num}.lst")
         )
 
@@ -179,7 +190,7 @@ class CCACrossVal:
                 list(
                     map(
                         int,
-                        utils.read_lst(
+                        read_lst(
                             os.path.join(self.data_dir, f"split{split_num}.lst")
                         ),
                     )
@@ -206,7 +217,7 @@ class CCACrossVal:
         np.save(mat_fn.replace("proj_x", "x_idxs"), x_idxs)
         np.save(mat_fn.replace("proj_x", "y_idxs"), y_idxs)
         write_str = ", ".join(mat_fn.split("_")[2:6])
-        utils.add_to_file(
+        add_to_file(
             f"{self.layer_num}, {epsilon_x}, {epsilon_y}, {score}\n",
             os.path.join(
                 self.mat_dir,
@@ -388,7 +399,7 @@ class CCACrossVal:
         return view1, view2
 
     def save_train_score(self):
-        utils.add_to_file(
+        add_to_file(
             f"{self.layer_num}, {np.mean(self.all_train_scores)}\n",
             os.path.join(
                 self.mat_dir,
@@ -512,7 +523,7 @@ def get_mi_score(
         upper_bound = mutual_info_score(eval_labels, eval_labels)
         mi_score = mutual_info_score(rep_labels, eval_labels)
     mi_score /= upper_bound
-    print("Clustering step finished in %s" % (utils.format_time(start)))
+    print("Clustering step finished in %s" % (format_time(start)))
     return mi_score
 
 
