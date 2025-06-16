@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+
+import os
+import json
+import numpy as np
+from tqdm import tqdm
+import fire
+import sys
+
+# Import from the same directory
+from .tools_utils import LAYER_CNT
+from .tools import get_cca_score, get_mi_score, get_similarity_score
+from .cca_core import CCA
+
 """
 Get CCA and MI scores
 """
@@ -13,14 +27,11 @@ from scipy.stats import spearmanr, pearsonr
 import time
 from tqdm import tqdm
 
-import tools
-
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 import sys
 
 sys.path.insert(0, os.path.join(curr_dir, ".."))
 from utils import save_dct, read_lst, format_time, load_dct, add_to_file
-from tools_utils import LAYER_CNT
 
 
 class getCCA:
@@ -43,7 +54,7 @@ class getCCA:
         """
         exp_name: cca-mel | cca-intra | cca-inter | cca-glove | cca-agwe
         """
-        print(eval_single_layer)
+        print(f"eval_single_layer: {eval_single_layer}")
         if eval_single_layer:
             assert layer_num != -1
         self.layer_num = layer_num
@@ -65,6 +76,7 @@ class getCCA:
         self.span = span
         self.exp_name = exp_name
         self.mean_score = mean_score
+        print(f"mean_score: {mean_score}")
         self.instance_cap = instance_cap
 
     def get_score_flag(self, layer_id):
@@ -87,7 +99,7 @@ class getCCA:
         subset=None,
     ):
         start_time = time.time()
-        sim_score = tools.get_cca_score(
+        sim_score = get_cca_score(
             view1,
             view2,
             rep_dir,
@@ -165,11 +177,13 @@ class getCCA:
 
     def cca_intra(self):
         rep_dir = os.path.join(self.rep_dir, "contextualized", "frame_level")
-        z_mat = np.load(os.path.join(rep_dir, f"layer_{self.base_layer}.npy"))
-        for layer_id in range(1, self.num_transformer_layers + 1):
+        z_mat = np.load(os.path.join(rep_dir, f"layer_{self.base_layer}.npy")) # this is the CNN output in our case (layer 0) (SAH)
+        
+        # Compare CNN output (layer 0) with all layers including itself (0-12)
+        for layer_id in range(0, self.num_transformer_layers + 1): # Process layers 0-12
             if self.get_score_flag(layer_id):
                 start_time = time.time()
-                c_mat = np.load(os.path.join(rep_dir, f"layer_{layer_id}.npy"))
+                c_mat = np.load(os.path.join(rep_dir, f"layer_{layer_id}.npy")) # Load layer (CNN or transformer) (SAH)
                 sim_score = self.get_cca_score(
                     z_mat.T,
                     c_mat.T,
@@ -343,7 +357,7 @@ class getMI:
             # n_clusters = 5000
             n_clusters = num_clusters
             batch_size = 4000
-        self.mi_score = tools.get_mi_score(
+        self.mi_score = get_mi_score(
             n_clusters,
             batch_size,
             max_iter,
@@ -472,6 +486,9 @@ def evaluate_cca(
     else:
         save_dct(save_fn, cca_obj.score_dct)
     print(f"Result saved at {save_fn}")
+    
+    # Return the scores dictionary
+    return cca_obj.score_dct
 
 def evaluate_wordsim(model_name, wordsim_task_fn, embedding_dir, save_fn):
     wordsim_tasks = load_dct(wordsim_task_fn)
@@ -486,7 +503,7 @@ def evaluate_wordsim(model_name, wordsim_task_fn, embedding_dir, save_fn):
         res_dct["macro average"][layer_num] = 0
         num_pairs = 0
         for task_name, task_lst in wordsim_tasks.items():
-            srho_score = tools.get_similarity_score(task_lst, embed_dct)
+            srho_score = get_similarity_score(task_lst, embed_dct)
             res_dct["micro average"][layer_num] += srho_score * len(task_lst)
             res_dct["macro average"][layer_num] += srho_score
             num_pairs += len(task_lst)
