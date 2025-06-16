@@ -337,7 +337,12 @@ class CCA:
             view2_projected,
             corr_scores,
         )
-        if mean_score:  # not a part of the original impementation
+        print(f"score_x: {score_x}")
+        print(f"score_y: {score_y}")
+        print(f"mean_score: {mean_score}")
+        print(f"len(proj_mat_x): {len(proj_mat_x)}")
+        print(f"len(proj_mat_y): {len(proj_mat_y)}")
+        if mean_score:
             return (score_x + score_y) / 2
         elif len(proj_mat_x) < len(proj_mat_y):
             return score_x
